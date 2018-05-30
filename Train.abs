@@ -1,0 +1,458 @@
+module Train;
+
+import * from ABS.StdLib;
+import * from ABS.Meta;
+
+interface Train {
+	Unit move() ;
+}
+
+interface VSS {
+    Unit leave1(Int m, VSS vss, Int n1, Int n2) ;
+    Unit arrive1(Int m, Int n1) ;
+  
+  	Unit leave2(Int m, VSS vss, Int n1, Int n2) ;
+    Unit arrive2(Int m, Int n2) ;
+  
+  	Unit receive1(Int m, VSS vss, Int n2, Int n3, RBC rbc) ;
+    Unit send1(Int m, Int n1, RBC rbc) ;
+  
+  	Unit receive2(Int m, VSS vss, Int n2, Int n3, RBC rbc) ;
+  	Unit send2(Int m, Int n2, RBC rbc) ;
+    
+    }
+    
+interface RBC {
+
+    Unit leave1(Int m, VSS vss, Int n1, Int n2) ;
+    Unit arrive1(Int m, Int n1) ;
+  
+  	Unit leave2(Int m, VSS vss, Int n1, Int n2) ;
+    Unit arrive2(Int m, Int n2) ;
+  
+  	Unit receive1(Int m, VSS vss, Int n2, Int n3, RBC rbc) ;
+    Unit send1(Int m, Int n1, RBC rbc) ;
+  
+  	Unit receive2(Int m, VSS vss, Int n2, Int n3, RBC rbc) ;
+  	Unit send2(Int m, Int n2, RBC rbc) ;
+  
+}
+
+class Train1Impl(Int m, VSS vss1, Int n1, VSS vss2, Int n2, RBC rbc) implements Train {
+	Unit move() {
+		Fut<Unit> fut1 = vss2!leave1(m,vss1,n1,n2) ;
+		await fut1? ;
+		fut1.get ;
+
+		Fut<Unit> fut2 = vss2!receive1(m,vss1,n1,n2,rbc) ;
+		await fut2? ;
+		fut2.get ;
+		      
+    	}
+}
+
+class Train2Impl(Int m, VSS vss1, Int n1, VSS vss2, Int n2, VSS vss3, Int n3, RBC rbc) implements Train {
+	Unit move() {
+		Fut<Unit> fut1 = vss2!leave1(m,vss1,n1,n2) ;
+      	await fut1? ;
+		fut1.get ;
+
+      	Fut<Unit> fut2 = vss2!receive1(m,vss1,n1,n2,rbc) ;
+      	await fut2? ;
+		fut2.get ;
+		
+      	//integrity loses
+      	Unit u = println(" Train " + intToString(m) + " splits into 2 parts. The second half of Train " + intToString(m) + " loses its integrity. " ) ;
+      	Unit v = println(" VSS " + intToString(n2) + " is now ambiguous because of Train "  + intToString(m) + "." ) ;
+      	Unit w = println(" The second half of Train " + intToString(m) + " remains at VSS " + intToString(n2) + "." ) ;	
+      
+      	//integrity loss propagation timer starts
+      	Time t = now() ;
+      	await duration(1,1) ;
+      	
+      	//integrity of the first half of Train 2 is confirmed
+		Fut<Unit> fut3 = vss3!leave2(m,vss2,n2,n3) ;
+      	await fut3? ;
+		fut3.get ;
+      	Fut<Unit> fut4 = vss3!receive2(m,vss2,n2,n3,rbc) ;
+      	await fut4? ;
+		fut4.get ;
+      	
+      	//if (n2 == n3) {
+      	//if (n2 == n3) & (vss2 == vss3){
+        	//Unit w = println(" The first half of Train " + intToString(m) + " stops at VSS " + intToString(n2)) ;
+        	//Unit x = println(" End of Authority for Train " + intToString(m +1) + " should be VSS " + intToString(n2 -1) ) ;
+          	//}
+      
+    	}
+}
+
+class Train3Impl(Int m, VSS vss1, Int n1, VSS vss2, Int n2, RBC rbc) implements Train {
+	Unit move() {
+
+		//Unit u = println(" End of Authority for Train "  + intToString(m) +  " is at VSS " + intToString(n2)) ;
+
+		Unit a = println(" Train " + intToString(m) + " arrives at VSS " + intToString(n1 +1) + "." ) ;    	
+ 		Unit b = println(" VSS " + intToString(n1 +1) + " is occupied by Train " + intToString(m) + "." ) ;
+        Unit c = println(" TTD " + intToString((n1 /3) +1) + " is occupied.") ;        
+		Unit d = println(" RBC receives the information: Train " + intToString(m) + " is now at VSS " + intToString(n1 +1) + "." ) ;    	
+		Unit e = println(" RBC sends back the information: VSS " + intToString(n1 +1) + " is occupied by Train " + intToString(m) + ". TTD " + intToString((n1 /3) +1) + " is occupied by Train " + intToString(m) + ". Train " + intToString(m) + " occupies the whole trackside detection section now. " ) ;
+        			      
+    	}
+}
+
+
+class VSSImpl implements VSS {
+	//data State = free|occupied|ambiguous|unknown ;
+	
+    Unit leave1(Int m, VSS vss, Int n1, Int n2) {
+      
+      	if (n1 > 0) {
+    	Unit u = println(" Train " + intToString(m) + " leaves VSS " + intToString(n1) + "." ) ;
+    	Unit v = println(" VSS " + intToString(n1) + " is free.") ;
+      	}
+          
+      	if ((n1 % 3 == 0) && (n1 != 0)) {
+          	Unit a = println(" TTD " + intToString(n1 /3) + " is free.") ;
+        }
+      
+    	//if (n1 < n2) {
+      		n1 = n1 + 1 ;
+    		//vss => this.next ;
+       		//}
+    	Fut<Unit> fut1 = vss!arrive1(m,n1) ;
+      	await fut1? ;
+    	fut1.get ;
+//      	if (n1 < n2) {
+//      		Fut<Unit> c = this!leave1(m,vss,n1,n2) ;
+//        	}
+      	if (n1 == n2) {
+      	//if (n1 == n2) & (vss1 == vss2){
+        	Unit w = println(" Train " + intToString(m) + " stops at VSS " + intToString(n1) + "." ) ;
+        	Unit x = println(" End of Authority for Train " + intToString(m +1) + " should be VSS " + intToString(n1 -1) + "." ) ;
+          	}
+    	
+    	}
+    
+    Unit arrive1(Int m, Int n1) {
+    	Unit u = println(" Train " + intToString(m) + " arrives at VSS " + intToString(n1) + "." ) ;    	
+ 		Unit v = println(" VSS " + intToString(n1) + " is occupied by Train " + intToString(m) + "." ) ;
+      	if (n1 % 3 == 1) {
+          	Unit a = println(" TTD " + intToString(((n1 -1) /3) +1) + " is occupied.") ;
+        }
+    	
+    	}
+
+	Unit leave2(Int m, VSS vss, Int n2, Int n3) {
+    	
+      	Unit u = println(" The first half of Train " + intToString(m) + " leaves VSS " + intToString(n2) + "." ) ;
+    	//Unit v = println(" The status of VSS " + intToString(n1) + " is free.") ;
+      
+      	if (n2 % 3 == 0) {
+          	Unit a = println(" VSS " + intToString(n2) + "," + intToString(n2 -1) + "," + intToString(n2 -2) + " are now unknown because of Train "  + intToString(m) + "." ) ;
+        	if (n2 - 3 < 4) {
+            Unit b = println(" End of Authority for Train " + intToString(m +1) + " should be VSS " + intToString(n2 -3) + "." ) ;  
+            }  	
+        }
+        else if (n2 % 3 == 2) {
+          	Unit a = println(" VSS " + intToString(n2) + "," + intToString(n2 -1) + " are now unknown because of Train "  + intToString(m) + "." ) ;
+        	}
+      	else {
+          	Unit a = println(" VSS " + intToString(n2) + " is now unknown because of Train "  + intToString(m) + "." ) ;
+          	}
+      
+    	//if (n2 < n3) {
+      		n2 = n2 + 1 ;
+    		//vss => this.next ;
+       		//}
+    	Fut<Unit> fut1 = vss!arrive2(m,n2) ;
+      	await fut1? ;
+    	fut1.get ;
+//      	if (n2 < n3) {
+//      		Fut<Unit> c = this!leave2(m,vss,n2,n3) ;
+//        	}
+      	if (n2 == n3) {
+      	//if (n2 == n3) & (vss2 == vss3){
+        	Unit w = println(" The first half of Train " + intToString(m) + " stops at VSS " + intToString(n2) + "." ) ;
+        	//Unit x = println(" End of Authority for Train " + intToString(m +1) + " should be VSS " + intToString(n2 -1) ) ;
+          	}
+    	
+    	}
+  
+  	Unit arrive2(Int m, Int n2) {
+    	Unit u = println(" The first half of Train " + intToString(m) + " arrives at VSS " + intToString(n2) + "." ) ;  
+    	if (n2 % 3 == 0) {  	
+ 		Unit v = println(" VSS " + intToString(n2) + " is ambiguous because of Train " + intToString(m) + ". TTD " + intToString((n2 / 3)) + " is occupied by Train " + intToString(m) + "." ) ;
+    	}
+    	else {  	
+ 		Unit v = println(" VSS " + intToString(n2) + " is ambiguous because of Train " + intToString(m) + ". TTD " + intToString((n2 / 3) +1) + " is occupied by Train " + intToString(m) + "." ) ;
+    	}
+    }
+  	
+  
+  
+  	 Unit receive1(Int m, VSS vss, Int n1, Int n2, RBC rbc) {
+    	Unit u = println(" RBC receives the information: Train " + intToString(m) + " is now at VSS " + intToString(n1 +1) + "." ) ;
+    	//if (n1 < n2) {
+      		n1 = n1 + 1 ;
+    		//vss => this.next ;
+       		//}
+    	Fut<Unit> fut2 = vss!send1(m,n1,rbc) ;
+      	await fut2? ;
+    	fut2.get ;
+      	
+      	//List<VSS> l = await vss!receive1(m,this.vss,n1) ;
+      	
+        if (n1 < n2) {
+          	Fut<Unit> c = this!leave1(m,vss,n1,n2) ;
+          	await c? ;
+          	Fut<Unit> r = this!receive1(m,vss,n1,n2,rbc) ;
+          	await r? ;
+        	}
+    	}
+  
+  	 Unit send1(Int m, Int n1, RBC rbc) {
+       
+       	if (n1 > 1) {
+       		if (n1 % 3 == 0) {
+    		Unit u = println(" RBC sends back the information: VSS " + intToString(n1) + " is occupied by Train " + intToString(m) + ". TTD " + intToString(n1 /3) + " is occupied by Train " + intToString(m) + ". VSS " + intToString(n1 -1) + " is now free. " ) ;
+        	}
+        	else {
+    		Unit u = println(" RBC sends back the information: VSS " + intToString(n1) + " is occupied by Train " + intToString(m) + ". TTD " + intToString((n1 /3) +1) + " is occupied by Train " + intToString(m) + ". VSS " + intToString(n1 -1) + " is now free. " ) ;
+        	}
+        }
+       	else {
+        	Unit u = println(" RBC sends back the information: VSS " + intToString(n1) + " is occupied by Train " + intToString(m) + ". TTD " + intToString(n1) + " is occupied by Train " + intToString(m) + "." ) ;  
+        }
+     }
+  
+  	Unit receive2(Int m, VSS vss, Int n2, Int n3, RBC rbc) {
+    	Unit u = println(" RBC receives the information: The first half of Train " + intToString(m) + " is now at VSS " + intToString(n2 +1) + "." ) ;
+    	//if (n2 < n3) {
+      		n2 = n2 + 1 ;
+    		//vss => this.next ;
+       		//}
+    	Fut<Unit> fut2 = vss!send2(m,n2,rbc) ;
+      	await fut2? ;
+    	fut2.get ;
+      	
+      	//List<VSS> l = await vss!receive2(m,this.vss,n2) ;
+      	
+        if (n2 < n3) {
+          	Fut<Unit> c = this!leave2(m,vss,n2,n3) ;
+          	await c? ;
+          	Fut<Unit> r = this!receive2(m,vss,n2,n3,rbc) ;
+          	await r? ;
+        	}
+    	}
+  
+    Unit send2(Int m, Int n2, RBC rbc) {
+    	
+      	if (n2 % 3 == 0) {
+    		Unit u = println(" RBC sends back the information: VSS " + intToString(n2) + " is ambiguous because of the first half of Train " + intToString(m) + ". TTD " + intToString(n2 /3) + " is occupied by Train " + intToString(m) + ". VSS " + intToString(n2 -1) + " is now unknown because of Train " + intToString(m) + "." ) ;
+        	}
+        	else {
+    		Unit u = println(" RBC sends back the information: VSS " + intToString(n2) + " is ambiguous because of the first half of Train " + intToString(m) + ". TTD " + intToString((n2 /3) +1) + " is occupied by Train " + intToString(m) + ". VSS " + intToString(n2 -1) + " is now unknown because of Train " + intToString(m) + "." ) ;
+        	}
+      	
+    	}
+}  
+  
+class RBCImpl implements RBC {
+  
+  	//data State = free|occupied|ambiguous|unknown ;
+	
+    Unit leave1(Int m, VSS vss, Int n1, Int n2) {
+      
+      	if (n1 > 0) {
+    	Unit u = println(" Train " + intToString(m) + " leaves VSS " + intToString(n1) + "." ) ;
+    	Unit v = println(" VSS " + intToString(n1) + " is free.") ;
+      	}
+          
+      	if ((n1 % 3 == 0) && (n1 != 0)) {
+          	Unit a = println(" TTD " + intToString(n1 /3) + " is free.") ;
+        }
+      
+    	//if (n1 < n2) {
+      		n1 = n1 + 1 ;
+    		//vss => this.next ;
+       		//}
+    	Fut<Unit> fut1 = vss!arrive1(m,n1) ;
+      	await fut1? ;
+    	fut1.get ;
+//      	if (n1 < n2) {
+//      		Fut<Unit> c = this!leave1(m,vss,n1,n2) ;
+//        	}
+      	if (n1 == n2) {
+      	//if (n1 == n2) & (vss1 == vss2){
+        	Unit w = println(" Train " + intToString(m) + " stops at VSS " + intToString(n1) + "." ) ;
+        	Unit x = println(" End of Authority for Train " + intToString(m +1) + " should be VSS " + intToString(n1 -1) + "." ) ;
+          	}
+    	
+    	}
+    
+    Unit arrive1(Int m, Int n1) {
+    	Unit u = println(" Train " + intToString(m) + " arrives at VSS " + intToString(n1) + "." ) ;    	
+ 		Unit v = println(" VSS " + intToString(n1) + " is occupied by Train " + intToString(m) + "." ) ;
+      	if (n1 % 3 == 1) {
+          	Unit a = println(" TTD " + intToString(((n1 -1) /3) +1) + " is occupied.") ;
+        }
+    	
+    	}
+
+	Unit leave2(Int m, VSS vss, Int n2, Int n3) {
+    	
+      	Unit u = println(" The first half of Train " + intToString(m) + " leaves VSS " + intToString(n2) + "." ) ;
+    	//Unit v = println(" The status of VSS " + intToString(n1) + " is free.") ;
+      
+      	if (n2 % 3 == 0) {
+          	Unit a = println(" VSS " + intToString(n2) + "," + intToString(n2 -1) + "," + intToString(n2 -2) + " are now unknown because of Train "  + intToString(m) + "." ) ;
+        	//if (n2 - 3 < 4) {
+            Unit b = println(" End of Authority for Train " + intToString(m +1) + " should be VSS " + intToString(n2 -3) + "." ) ;  
+            //}
+        }
+        else if (n2 % 3 == 2) {
+          	Unit a = println(" VSS " + intToString(n2) + "," + intToString(n2 -1) + " are now unknown because of Train "  + intToString(m) + "." ) ;
+        	}
+      	else {
+          	Unit a = println(" VSS " + intToString(n2) + " is now unknown because of Train "  + intToString(m) + "." ) ;
+          	}
+      
+    	//if (n2 < n3) {
+      		n2 = n2 + 1 ;
+    		//vss => this.next ;
+       		//}
+    	Fut<Unit> fut1 = vss!arrive2(m,n2) ;
+      	await fut1? ;
+    	fut1.get ;
+//      	if (n2 < n3) {
+//      		Fut<Unit> c = this!leave2(m,vss,n2,n3) ;
+//        	}
+      	if (n2 == n3) {
+      	//if (n2 == n3) & (vss2 == vss3){
+        	Unit w = println(" The first half of Train " + intToString(m) + " stops at VSS " + intToString(n2) + "." ) ;
+        	//Unit x = println(" End of Authority for Train " + intToString(m +1) + " should be VSS " + intToString(n2 -1) ) ;
+          	}
+    	
+    	}
+  
+  	Unit arrive2(Int m, Int n2) {
+    	Unit u = println(" The first half of Train " + intToString(m) + " arrives at VSS " + intToString(n2) + "." ) ;  
+    	if (n2 % 3 == 0) {  	
+ 		Unit v = println(" VSS " + intToString(n2) + " is ambiguous because of Train " + intToString(m) + ". TTD " + intToString((n2 / 3)) + " is occupied by Train " + intToString(m) + "." ) ;
+    	}
+    	else {  	
+ 		Unit v = println(" VSS " + intToString(n2) + " is ambiguous because of Train " + intToString(m) + ". TTD " + intToString((n2 / 3) +1) + " is occupied by Train " + intToString(m) + "." ) ;
+    	}
+    }
+  
+  
+  
+    Unit receive1(Int m, VSS vss, Int n1, Int n2, RBC rbc) {
+    	Unit u = println(" RBC receives the information: Train " + intToString(m) + " is now at VSS " + intToString(n1 +1) + "." ) ;
+    	//if (n1 < n2) {
+      		n1 = n1 + 1 ;
+    		//vss => this.next ;
+       		//}
+    	Fut<Unit> fut2 = vss!send1(m,n1,rbc) ;
+      	await fut2? ;
+    	fut2.get ;
+      	
+      	//List<VSS> l = await vss!receive1(m,this.vss,n1) ;
+      	
+        if (n1 < n2) {
+          	Fut<Unit> c = this!leave1(m,vss,n1,n2) ;
+          	await c? ;
+          	Fut<Unit> r = this!receive1(m,vss,n1,n2,rbc) ;
+          	await r? ;
+        	}
+    	}
+  
+  	 Unit send1(Int m, Int n1, RBC rbc) {
+       
+       	if (n1 > 1) {
+       		if (n1 % 3 == 0) {
+    		Unit u = println(" RBC sends back the information: VSS " + intToString(n1) + " is occupied by Train " + intToString(m) + ". TTD " + intToString(n1 /3) + " is occupied by Train " + intToString(m) + ". VSS " + intToString(n1 -1) + " is now free. " ) ;
+        	}
+        	else {
+    		Unit u = println(" RBC sends back the information: VSS " + intToString(n1) + " is occupied by Train " + intToString(m) + ". TTD " + intToString((n1 /3) +1) + " is occupied by Train " + intToString(m) + ". VSS " + intToString(n1 -1) + " is now free. " ) ;
+        	}
+        }
+       	else {
+        	Unit u = println(" RBC sends back the information: VSS " + intToString(n1) + " is occupied by Train " + intToString(m) + ". TTD " + intToString(n1) + " is occupied by Train " + intToString(m) + "." ) ;  
+        }
+     }
+  
+  	Unit receive2(Int m, VSS vss, Int n2, Int n3, RBC rbc) {
+    	Unit u = println(" RBC receives the information: The first half of Train " + intToString(m) + " is now at VSS " + intToString(n2 +1) + "." ) ;
+    	//if (n2 < n3) {
+      		n2 = n2 + 1 ;
+    		//vss => this.next ;
+       		//}
+    	Fut<Unit> fut2 = vss!send2(m,n2,rbc) ;
+      	await fut2? ;
+    	fut2.get ;
+      	
+      	//List<VSS> l = await vss!receive2(m,this.vss,n2) ;
+      	
+        if (n2 < n3) {
+          	Fut<Unit> c = this!leave2(m,vss,n2,n3) ;
+          	await c? ;
+          	Fut<Unit> r = this!receive2(m,vss,n2,n3,rbc) ;
+          	await r? ;
+        	}
+    	}
+  
+    Unit send2(Int m, Int n2, RBC rbc) {
+    	
+      	if (n2 % 3 == 0) {
+    		Unit u = println(" RBC sends back the information: VSS " + intToString(n2) + " is ambiguous because of the first half of Train " + intToString(m) + ". TTD " + intToString(n2 /3) + " is occupied by Train " + intToString(m) + ". VSS " + intToString(n2 -1) + " is now unknown because of Train " + intToString(m) + "." ) ;
+        	}
+        	else {
+    		Unit u = println(" RBC sends back the information: VSS " + intToString(n2) + " is ambiguous because of the first half of Train " + intToString(m) + ". TTD " + intToString((n2 /3) +1) + " is occupied by Train " + intToString(m) + ". VSS " + intToString(n2 -1) + " is now unknown because of Train " + intToString(m) + "." ) ;
+        	}
+      	
+    	}
+}
+
+
+// MAIN //
+
+{
+VSS v0 = new VSSImpl() ;
+VSS v1 = new VSSImpl() ;
+VSS v2 = new VSSImpl() ;
+VSS v3 = new VSSImpl() ;
+VSS v4 = new VSSImpl() ;
+VSS v5 = new VSSImpl() ;
+VSS v6 = new VSSImpl() ;
+VSS v7 = new VSSImpl() ;
+VSS v8 = new VSSImpl() ;
+VSS v9 = new VSSImpl() ;
+
+List<VSS> li = list[v0,v1,v2,v3,v4,v5,v6,v7,v8,v9] ;
+  
+RBC r = new RBCImpl() ;
+
+Train t1 = new Train1Impl(1,v0,0,v9,9,r) ;
+Unit a = println(" Train 1 is a TIMS-equipped ERTMS train. ") ;
+Unit b = println(" End of Authority for Train 1 is at VSS 9. ") ;
+Fut<Unit> f1 = t1!move() ;
+  await f1? ;
+  f1.get ;
+
+Train t2 = new Train2Impl(2,v0,0,v5,5,v8,8,r) ;
+Unit c = println(" Train 2 is a ERTMS train not fitted with TIMS. ") ;
+Fut<Unit> f2 = t2!move() ;
+  await f2? ;
+  f2.get ;
+
+Train t3 = new Train3Impl(3,v0,0,v4,4,r) ;
+Unit d = println(" Train 3 is a non-ERTMS train. ") ;
+Fut<Unit> f3 = t3!move() ;
+  await f3? ;
+  f3.get ;
+  
+}
+
+
