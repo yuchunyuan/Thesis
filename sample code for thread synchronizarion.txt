@@ -1,0 +1,27 @@
+module Thread ;
+	class CallThreadImpl(Unit thread1, Unit thread2, Int i) {
+		Unit call() {
+			Fut<Unit> fut = thread1!run_A(thread2,i) ;
+			fut.get ;
+		}
+	}	
+	class ThreadImpl {
+		Unit run_A(Unit t, Int i) {
+			println("A" + intToString(i)) ;
+			Fut<Unit> f = t!run_B(i) ;
+			f.get ;
+		}
+		Unit run_B(Int i) {
+			println("B" + intToString(i)) ;
+		}
+	}
+	{
+	Unit t1 = new ThreadImpl() ;
+	Unit t2 = new ThreadImpl() ;
+	Unit c1 = new CallThreadImpl(t1,t2,1) ; 
+	Fut<Unit> f1 = c1!call() ;
+	await f1? ;
+	Unit c2 = new CallThreadImpl(t2,t1,2) ;
+	Fut<Unit> f2 = c2!call() ;
+	await f2? ;
+	}

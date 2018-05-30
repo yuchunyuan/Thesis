@@ -1,0 +1,673 @@
+module Train;
+
+import * from ABS.StdLib;
+import * from ABS.Meta;
+
+data Status = Free|Occupied|Ambiguous|Unknown ; 
+
+interface Train {
+	Unit move() ;
+    }
+
+interface VSS {
+    Unit leaveTIMS(Int trainNo, VSS vss, Int leavePoint, Int arrivePoint) ;
+    Unit arriveTIMS(Int trainNo, Int arrivePoint) ;
+  
+  	Unit leaveNonTIMS(Int trainNo, VSS vss, Int breakPoint, Int arrivePoint) ;
+    Unit arriveNonTIMS(Int trainNo, Int arrivePoint) ;
+  
+  	Unit connectRBCTIMS(Int trainNo, VSS vss, Int leavePoint, Int arrivePoint, RBC rbc) ;
+    //Unit sendTIMS(Int trainNo, Int leavePoint, RBC rbc) ;
+  
+  	Unit connectRBCNonTIMS(Int trainNo, VSS vss, Int breakPoint, Int arrivePoint, RBC rbc) ;
+  	//Unit sendNonTIMS(Int trainNo, Int breakPoint, RBC rbc) ;
+  
+  	Int getEoA(RBC rbc, Int leavePoint, Int trainNo) ;
+    //Unit setEoA(RBC rbc, Int leavePoint, Int trainNo) ;
+  
+    }
+    
+interface RBC {
+
+    Unit leaveTIMS(Int trainNo, VSS vss, Int leavePoint, Int arrivePoint, Map<Int, Status> map) ;
+    Unit arriveTIMS(Int trainNo, Int arrivePoint, Map<Int, Status> map) ;
+   
+  	Unit leaveNonTIMS(Int trainNo, VSS vss, Int breakPoint, Int arrivePoint, Map<Int, Status> map) ;
+    Unit arriveNonTIMS(Int trainNo, Int arrivePoint, Map<Int, Status> map) ;
+  
+  	Unit connectRBCTIMS(Int trainNo, VSS vss, Int leavePoint, Int arrivePoint, RBC rbc, Map<Int, Status> map) ;
+    //Unit sendTIMS(Int trainNo, Int leavePoint, RBC rbc, Map<Int, Status> map) ;
+  
+  	Unit connectRBCNonTIMS(Int trainNo, VSS vss, Int breakPoint, Int arrivePoint, RBC rbc, Map<Int, Status> map) ;
+  	//Unit sendNonTIMS(Int trainNo, Int breakPoint, RBC rbc,  Map<Int, Status> map) ;
+  
+  	Int getnextEoA(RBC rbc, Int leavePoint, Int trainNo, Map<Int, Status> map) ;
+    //Unit setEoA(RBC rbc, Int leavePoint, Int trainNo) ;
+  	Int getcurrentEoA(RBC rbc, Int leavePoint, Int trainNo, Map<Int, Status> map) ;
+  
+    }
+
+class TrainTIMSImpl(Int trainNo, VSS leaveVSS, Int leavePoint, VSS arriveVSS, Int arrivePoint, RBC rbc, Map<Int, Status> map) implements Train {
+	Unit move() {
+      	
+		Fut<Unit> fTIMS = arriveVSS!leaveTIMS(trainNo,leaveVSS,leavePoint,arrivePoint) ;
+		await fTIMS? ;
+		fTIMS.get ;
+
+		Fut<Unit> fRBC = rbc!connectRBCTIMS(trainNo,leaveVSS,leavePoint,arrivePoint,rbc,map) ;
+		await fRBC? ;
+		fRBC.get ;
+      
+      	//Fut<Int> fEoA = rbc!getEoA(rbc,leavePoint+1,trainNo,map) ;
+      	//await fEoA? ;
+      	//fEoA.get ;
+      	
+            
+        }
+}
+
+class TrainNonTIMSImpl(Int trainNo, VSS leaveVSS, Int leavePoint, VSS breakVSS, Int breakPoint, VSS arriveVSS, Int arrivePoint, RBC rbc, Map<Int, Status> map) implements Train {
+	Unit move() {
+		
+      	if(arrivePoint < 0) {
+        	arrivePoint = rbc.getcurrentEoA(rbc,leavePoint,trainNo,map) ;
+          	//println ("End of Authority(EoA) of train " + intToString(trainNo) + " is " + intToString(arrivePoint) + ".") ;
+        }
+      
+      	//arriveVSS = nth(l, arrivePoint);
+      	arriveVSS = new VSSImpl() ;
+      
+        Fut<Unit> fTIMS = breakVSS!leaveTIMS(trainNo,leaveVSS,leavePoint,breakPoint) ;
+      	await fTIMS? ;
+		fTIMS.get ;
+
+      	Fut<Unit> fRBCTIMS = rbc!connectRBCTIMS(trainNo,leaveVSS,leavePoint,breakPoint,rbc,map) ;
+      	await fRBCTIMS? ;
+		fRBCTIMS.get ;
+		
+      	//integrity loses
+      	println(" Train " + intToString(trainNo) + " splits into 2 parts. The second half of Train " + intToString(trainNo) + " loses its integrity. " ) ;
+      	println(" VSS " + intToString(breakPoint) + " is now ambiguous because of Train "  + intToString(trainNo) + "." ) ;
+      	println(" The second half of Train " + intToString(trainNo) + " remains at VSS " + intToString(breakPoint) + "." ) ;	
+      
+      	//integrity loss propagation timer starts
+      	//Time t = now() ;
+      	//await duration(1,1) ;
+      
+        //connect RBC to make sure of the current EoA
+        Fut<Int> fEoA = rbc!getcurrentEoA(rbc,leavePoint,trainNo,map) ;
+        await fEoA? ;
+        fEoA.get ;
+//        Fut<Unit> fut4 = vss2!setEoA(leaveVSS,rbc,n1) ;
+//        await fut4? ;
+//        fut4.get ;
+      
+      	//map = removeKey(map,arrivePoint) ;        
+        //map = insert(map,Pair(arrivePoint, Occupied));
+      
+      	println(" map is " + toString(map)) ;
+      
+      	
+      	//integrity of the first half of Train 2 is confirmed
+		Fut<Unit> fNonTIMS = arriveVSS!leaveNonTIMS(trainNo,breakVSS,breakPoint,arrivePoint) ;
+      	await fNonTIMS? ;
+		fNonTIMS.get ;
+      	Fut<Unit> fRBCNonTIMS = rbc!connectRBCNonTIMS(trainNo,breakVSS,breakPoint,arrivePoint,rbc,map) ;
+      	await fRBCNonTIMS? ;
+		fRBCNonTIMS.get ;   
+      
+      	//Fut<Int> fut7 = rbc!getEoA(rbc,1,trainNo,map) ;
+      	//await fut7? ;
+      	//fut7.get ;
+        }
+}
+
+class TrainNonERTMSImpl(Int trainNo, VSS leaveVSS, Int leavePoint, VSS arriveVSS, Int arrivePoint, RBC rbc, Map<Int, Status> map) implements Train {
+	Unit move() {
+	
+		if(arrivePoint < 0) {
+          arrivePoint = rbc.getcurrentEoA(rbc,leavePoint,trainNo,map) ;
+        }
+          
+		//println(" End of Authority for Train "  + intToString(trainNo) +  " is at VSS " + intToString(arrivePoint)) ;
+
+      	//arriveVSS = nth(l, arrivePoint);
+      	arriveVSS = new VSSImpl() ;
+      
+		println(" Train " + intToString(trainNo) + " arrives at VSS " + intToString(leavePoint+1) + "." ) ;    	
+ 		println(" VSS " + intToString(leavePoint+1) + " is occupied by Train " + intToString(trainNo) + "." ) ;
+        println(" TTD " + intToString((leavePoint/3)+1) + " is occupied.") ;  
+
+		//connect RBC to make sure of the current EoA
+      	println(" RBC receives the information: Train " + intToString(trainNo) + " is now at VSS " + intToString(leavePoint +1) + "." ) ;    	
+       
+   		Fut<Int> fEoA = rbc!getcurrentEoA(rbc,leavePoint,trainNo,map) ;
+        await fEoA? ;
+        Int arrivePoint = fEoA.get ;
+        println(" RBC sends back the information: VSS " + intToString(leavePoint +1) + " is occupied by Train " + intToString(trainNo) + ". TTD " + intToString((leavePoint /3) +1) + " is occupied by Train " + intToString(trainNo) + ". Train " + intToString(trainNo) + " occupies the whole trackside detection section now. " ) ;
+        	
+      
+//        Fut<Unit> fut2 = arriveVSS!setEoA(leaveVSS,rbc,arrivePoint) ;
+//        await fut2? ;
+//        fut2.get ;
+//        println(" RBC sends back the information: VSS " + intToString(leavePoint +1) + " is occupied by Train " + intToString(trainNo) + ". TTD " + intToString((leavePoint /3) +1) + " is occupied by Train " + intToString(trainNo) + ". Train " + intToString(trainNo) + " occupies the whole trackside detection section now. " ) ;
+        			      
+    	}
+}
+
+
+class VSSImpl implements VSS {
+    
+  	Unit leaveTIMS(Int trainNo, VSS vss, Int leavePoint, Int arrivePoint) {
+      
+      	if (leavePoint > 0) {
+    		println(" Train " + intToString(trainNo) + " leaves VSS " + intToString(leavePoint) + "." ) ;
+    		println(" VSS " + intToString(leavePoint) + " is free.") ;
+
+      	}
+          
+      	if ((leavePoint % 3 == 0) && (leavePoint != 0)) {
+          	println(" TTD " + intToString(leavePoint/3) + " is free.") ;
+        }
+      
+    	//if (leavePoint < arrivePoint) {
+      		leavePoint = leavePoint + 1 ;
+    		//vss => this.next ;
+       		//}
+    	Fut<Unit> fut1 = vss!arriveTIMS(trainNo,leavePoint) ;
+      	await fut1? ;
+    	fut1.get ;
+//      	if (leavePoint < arrivePoint) {
+//      		Fut<Unit> c = this!leave1(trainNo,vss,leavePoint,arrivePoint) ;
+//        	}
+      	if (leavePoint == arrivePoint) {
+      	//if (leavePoint == arrivePoint) & (vss1 == vss2){
+        	println(" Train " + intToString(trainNo) + " stops at VSS " + intToString(leavePoint) + "." ) ;
+        	//println(" End of Authority for Train " + intToString(trainNo+1) + " should be VSS " + intToString(leavePoint-1) + "." ) ;
+        }
+    	
+    }
+    
+    Unit arriveTIMS(Int trainNo, Int arrivePoint) {
+    	println(" Train " + intToString(trainNo) + " arrives at VSS " + intToString(arrivePoint) + "." ) ;    	
+ 		println(" VSS " + intToString(arrivePoint) + " is occupied by Train " + intToString(trainNo) + "." ) ;
+      	
+      	if (arrivePoint % 3 == 1) {
+          	println(" TTD " + intToString(((arrivePoint-1)/3)+1) + " is occupied.") ;
+        }
+    	
+    }
+
+	Unit leaveNonTIMS(Int trainNo, VSS vss, Int breakPoint, Int arrivePoint) {
+    	
+      	println(" The first half of Train " + intToString(trainNo) + " leaves VSS " + intToString(breakPoint) + "." ) ;
+      
+      	if (breakPoint % 3 == 0) {
+          	println(" VSS " + intToString(breakPoint) + "," + intToString(breakPoint-1) + "," + intToString(breakPoint-2) + " are now unknown because of Train "  + intToString(trainNo) + "." ) ;
+          
+        	//if (breakPoint - 3 < 4) {
+            //println(" End of Authority for Train " + intToString(trainNo+1) + " should be VSS " + intToString(breakPoint-3) + "." ) ;  
+            //}  	
+        }
+        else if (breakPoint % 3 == 2) {
+          	println(" VSS " + intToString(breakPoint) + "," + intToString(breakPoint -1) + " are now unknown because of Train "  + intToString(trainNo) + "." ) ;
+       
+        }
+      	else {
+          	println(" VSS " + intToString(breakPoint) + " is now unknown because of Train "  + intToString(trainNo) + "." ) ;
+        	
+        }
+      
+    	//if (breakPoint < arrivepoint) {
+      		breakPoint = breakPoint + 1 ;
+    		//vss => this.next ;
+       		//}
+    	Fut<Unit> fut1 = vss!arriveNonTIMS(trainNo,breakPoint) ;
+      	await fut1? ;
+    	fut1.get ;
+//      	if (breakPoint < arrivePoint) {
+//      		Fut<Unit> c = this!leave2(trainNo,vss,breakPoint,arrivePoint) ;
+//        	}
+      	if (breakPoint == arrivePoint) {
+      	//if (breakPoint == arrivePoint) & (vss2 == vss3){
+        	println(" The first half of Train " + intToString(trainNo) + " stops at VSS " + intToString(breakPoint) + "." ) ;
+        	//println(" End of Authority for Train " + intToString(trainNo+1) + " should be VSS " + intToString(breakPoint-1) ) ;
+        }
+    	
+    }
+  
+  	Unit arriveNonTIMS(Int trainNo, Int arrivePoint) {
+    	println(" The first half of Train " + intToString(trainNo) + " arrives at VSS " + intToString(arrivePoint) + "." ) ;  
+    	if (arrivePoint % 3 == 0) {  	
+ 			println(" VSS " + intToString(arrivePoint) + " is ambiguous because of Train " + intToString(trainNo) + ". TTD " + intToString((arrivePoint/3)) + " is occupied by Train " + intToString(trainNo) + "." ) ;
+    	}
+    	else {  	
+ 			println(" VSS " + intToString(arrivePoint) + " is ambiguous because of Train " + intToString(trainNo) + ". TTD " + intToString((arrivePoint/3) +1) + " is occupied by Train " + intToString(trainNo) + "." ) ;
+    	}
+    	
+    }
+  	 
+  	Unit connectRBCTIMS(Int trainNo, VSS vss, Int leavePoint, Int arrivePoint, RBC rbc) {
+    	println(" RBC receives the information: Train " + intToString(trainNo) + " is now at VSS " + intToString(leavePoint+1) + "." ) ;
+    	
+       	//if (leavePoint < arrivePoint) {
+      		leavePoint = leavePoint + 1 ;
+    		//vss => this.next ;
+       		//}
+      	
+      	if (leavePoint > 1) {
+       		if (leavePoint % 3 == 0) {
+    		println(" RBC sends back the information: VSS " + intToString(leavePoint) + " is occupied by Train " + intToString(trainNo) + ". TTD " + intToString(leavePoint/3) + " is occupied by Train " + intToString(trainNo) + ". VSS " + intToString(leavePoint-1) + " is now free. " ) ;
+        	
+            }
+        	else {
+    		println(" RBC sends back the information: VSS " + intToString(leavePoint) + " is occupied by Train " + intToString(trainNo) + ". TTD " + intToString((leavePoint/3)+1) + " is occupied by Train " + intToString(trainNo) + ". VSS " + intToString(leavePoint-1) + " is now free. " ) ;
+        	
+            }
+            
+        }
+       	else {
+        	println(" RBC sends back the information: VSS " + intToString(leavePoint) + " is occupied by Train " + intToString(trainNo) + ". TTD " + intToString(leavePoint) + " is occupied by Train " + intToString(trainNo) + "." ) ;  
+        }
+
+      	
+        if (leavePoint < arrivePoint) {
+          	Fut<Unit> c = this!leaveTIMS(trainNo,vss,leavePoint,arrivePoint) ;
+          	await c? ;
+          	Fut<Unit> r = this!connectRBCTIMS(trainNo,vss,leavePoint,arrivePoint,rbc) ;
+          	await r? ;
+          	//Fut<Int> g = this!getEoA(rbc,1,map) ;
+          	//await g? ;
+        }
+       
+       	
+    }
+  
+  	Unit connectRBCNonTIMS(Int trainNo, VSS vss, Int breakPoint, Int arrivePoint, RBC rbc) {
+    	println(" RBC receives the information: The first half of Train " + intToString(trainNo) + " is now at VSS " + intToString(arrivePoint+1) + "." ) ;
+      	
+    	//if (breakPoint < arrivePoint) {
+      		breakPoint = breakPoint + 1 ;
+    		//vss => this.next ;
+       		//}
+      	
+      	if (breakPoint % 3 == 0) {
+    		println(" RBC sends back the information: VSS " + intToString(breakPoint) + " is ambiguous because of the first half of Train " + intToString(trainNo) + ". TTD " + intToString(breakPoint/3) + " is occupied by Train " + intToString(trainNo) + ". VSS " + intToString(breakPoint-1) + " is now unknown because of Train " + intToString(trainNo) + "." ) ;
+        	}
+        	else {
+    		println(" RBC sends back the information: VSS " + intToString(breakPoint) + " is ambiguous because of the first half of Train " + intToString(trainNo) + ". TTD " + intToString((breakPoint/3)+1) + " is occupied by Train " + intToString(trainNo) + ". VSS " + intToString(breakPoint-1) + " is now unknown because of Train " + intToString(trainNo) + "." ) ;
+        	}
+     
+      	
+        if (breakPoint < arrivePoint) {
+          	Fut<Unit> c = this!leaveNonTIMS(trainNo,vss,breakPoint,arrivePoint) ;
+          	await c? ;
+          	Fut<Unit> r = this!connectRBCNonTIMS(trainNo,vss,breakPoint,arrivePoint,rbc) ;
+          	await r? ;
+        }
+
+ 
+    }
+  	
+  	Int getEoA(RBC rbc,  Int leavePoint, Int trainNo) {
+      
+      leavePoint = 1;
+      
+//        while (lookupUnsafe(map,leavePoint) == Free && leavePoint < 9) {
+//            leavePoint = leavePoint + 1 ; 
+//            //println(toString(leavePoint));
+//        }
+      
+     	println("End of Authority(EoA) of next train is " + intToString(leavePoint-1) + " . ") ;
+        println(" RBC sends back the information: End of Authority(EoA) of next train is " + intToString(leavePoint-1) + " . ") ;
+   
+      
+      	return leavePoint-1 ;
+      	//return getEoA(rbc, leavePoint, trainNo);
+      	
+    }
+  
+
+}  
+  
+class RBCImpl implements RBC {
+	
+	//Map<Int,Status> map = map[Pair(1,Free),Pair(2,Free),Pair(3,Free),Pair(4,Free),Pair(5,Free),Pair(6,Free),Pair(7,Free),Pair(8,Free),Pair(9,Free)] ;
+
+	Unit leaveTIMS(Int trainNo, VSS vss, Int leavePoint, Int arrivePoint, Map<Int, Status> map) {
+      
+      	if (leavePoint > 0) {
+    		println(" Train " + intToString(trainNo) + " leaves VSS " + intToString(leavePoint) + "." ) ;
+    		println(" VSS " + intToString(leavePoint) + " is free.") ;
+    	
+        	map = removeKey(map,leavePoint) ;        
+        	map = insert(map,Pair(leavePoint, Free));
+         
+      	}
+          
+      	if ((leavePoint % 3 == 0) && (leavePoint != 0)) {
+          	println(" TTD " + intToString(leavePoint/3) + " is free.") ;
+        }
+      
+    	//if (leavePoint < arrivePoint) {
+      		leavePoint = leavePoint + 1 ;
+    		//vss => this.next ;
+       		//}
+    	Fut<Unit> fut1 = vss!arriveTIMS(trainNo,leavePoint) ;
+      	await fut1? ;
+    	fut1.get ;
+//      	if (leavePoint < arrivePoint) {
+//      		Fut<Unit> c = this!leave1(trainNo,vss,leavePoint,arrivePoint) ;
+//        	}
+      	if (leavePoint == arrivePoint) {
+      	//if (leavePoint == arrivePoint) & (vss1 == vss2){
+        	println(" Train " + intToString(trainNo) + " stops at VSS " + intToString(leavePoint) + "." ) ;
+        	//println(" End of Authority for Train " + intToString(trainNo+1) + " should be VSS " + intToString(leavePoint-1) + "." ) ;
+         
+        }
+    	
+    }
+    
+    Unit arriveTIMS(Int trainNo, Int arrivePoint, Map<Int, Status> map) {
+    	println(" Train " + intToString(trainNo) + " arrives at VSS " + intToString(arrivePoint) + "." ) ;    	
+ 		println(" VSS " + intToString(arrivePoint) + " is occupied by Train " + intToString(trainNo) + "." ) ;
+      	
+      	map = removeKey(map,arrivePoint) ;
+      	//map = map[Pair(arrivePoint, Occupied)];
+      	map = insert(map,Pair(arrivePoint, Occupied));
+      	
+      	if (arrivePoint % 3 == 1) {
+          	println(" TTD " + intToString(((arrivePoint-1)/3)+1) + " is occupied.") ;
+        }
+    	
+    }
+
+	Unit leaveNonTIMS(Int trainNo, VSS vss, Int breakPoint, Int arrivePoint, Map<Int, Status> map) {
+    	
+      	println(" The first half of Train " + intToString(trainNo) + " leaves VSS " + intToString(breakPoint) + "." ) ;
+      
+      	if (breakPoint % 3 == 0) {
+          	println(" VSS " + intToString(breakPoint) + "," + intToString(breakPoint-1) + "," + intToString(breakPoint-2) + " are now unknown because of Train "  + intToString(trainNo) + "." ) ;
+        	map = removeKey(map,breakPoint-2) ;
+          	//Map<Int, Status> map = map[Pair(breakPoint-2, Unknown)];
+          	map = insert(map,Pair(breakPoint-2, Unknown));
+          
+            map = removeKey(map,breakPoint-1) ;
+          	//Map<Int, Status> map = map[Pair(breakPoint-1, Unknown)];
+          	map = insert(map,Pair(breakPoint-1, Unknown));
+          
+            map = removeKey(map,breakPoint) ;
+          	//Map<Int, Status> map = map[Pair(breakPoint, Unknown)];
+          	map = insert(map,Pair(breakPoint, Unknown));
+          
+        	//if (breakPoint - 3 < 4) {
+            //println(" End of Authority for Train " + intToString(trainNo+1) + " should be VSS " + intToString(breakPoint-3) + "." ) ;  
+            //}  	
+        }
+        else if (breakPoint % 3 == 2) {
+          	println(" VSS " + intToString(breakPoint) + "," + intToString(breakPoint -1) + " are now unknown because of Train "  + intToString(trainNo) + "." ) ;
+        	map = removeKey(map,breakPoint -1) ;
+          	//Map<Int, Status> map = map[Pair(breakPoint-1, Unknown)];
+          	map = insert(map,Pair(breakPoint-1, Unknown));
+          
+            map = removeKey(map,breakPoint) ;
+          	//Map<Int, Status> map = map[Pair(breakPoint, Unknown)];
+          	map = insert(map,Pair(breakPoint, Unknown));
+        }
+      	else {
+          	println(" VSS " + intToString(breakPoint) + " is now unknown because of Train "  + intToString(trainNo) + "." ) ;
+        	map = removeKey(map,breakPoint) ;
+          	//Map<Int, Status> map = map[Pair(breakPoint, Unknown)];	 
+          	map = insert(map,Pair(breakPoint, Unknown));
+        }
+      
+    	//if (breakPoint < arrivepoint) {
+      		breakPoint = breakPoint + 1 ;
+    		//vss => this.next ;
+       		//}
+    	Fut<Unit> fut1 = vss!arriveNonTIMS(trainNo,breakPoint) ;
+      	await fut1? ;
+    	fut1.get ;
+//      	if (breakPoint < arrivePoint) {
+//      		Fut<Unit> c = this!leave2(trainNo,vss,breakPoint,arrivePoint) ;
+//        	}
+      	if (breakPoint == arrivePoint) {
+      	//if (breakPoint == arrivePoint) & (vss2 == vss3){
+        	println(" The first half of Train " + intToString(trainNo) + " stops at VSS " + intToString(breakPoint) + "." ) ;
+        	//println(" End of Authority for Train " + intToString(trainNo+1) + " should be VSS " + intToString(breakPoint-1) ) ;
+        }
+    	
+    }
+  
+  	Unit arriveNonTIMS(Int trainNo, Int arrivePoint, Map<Int, Status> map) {
+    	println(" The first half of Train " + intToString(trainNo) + " arrives at VSS " + intToString(arrivePoint) + "." ) ;  
+    	if (arrivePoint % 3 == 0) {  	
+ 			println(" VSS " + intToString(arrivePoint) + " is ambiguous because of Train " + intToString(trainNo) + ". TTD " + intToString((arrivePoint/3)) + " is occupied by Train " + intToString(trainNo) + "." ) ;
+    	}
+    	else {  	
+ 			println(" VSS " + intToString(arrivePoint) + " is ambiguous because of Train " + intToString(trainNo) + ". TTD " + intToString((arrivePoint/3) +1) + " is occupied by Train " + intToString(trainNo) + "." ) ;
+    	}
+    	map = removeKey(map,arrivePoint) ;
+      	//Map<Int, Status> map = map[Pair(arrivePoint, Ambiguous)];
+      	map = insert(map,Pair(arrivePoint, Ambiguous));
+    }
+  	 
+  	Unit connectRBCTIMS(Int trainNo, VSS vss, Int leavePoint, Int arrivePoint, RBC rbc, Map<Int, Status> map) {
+    	println(" RBC receives the information: Train " + intToString(trainNo) + " is now at VSS " + intToString(leavePoint +1) + "." ) ;
+    	
+       	map = removeKey(map,leavePoint+1) ;        
+        //Map<Int, Status> map = map[Pair(leavePoint+1, Occupied)];
+        map = insert(map,Pair(leavePoint+1, Occupied));
+      
+    //println(" map is " + toString(map)) ;
+       	
+       	//if (leavePoint < arrivePoint) {
+      		leavePoint = leavePoint + 1 ;
+    		//vss => this.next ;
+       		//}
+      	
+       
+       	if (leavePoint > 1) {
+       		if (leavePoint % 3 == 0) {
+    		println(" RBC sends back the information: VSS " + intToString(leavePoint) + " is occupied by Train " + intToString(trainNo) + ". TTD " + intToString(leavePoint/3) + " is occupied by Train " + intToString(trainNo) + ". VSS " + intToString(leavePoint-1) + " is now free. " ) ;
+        	
+            }
+        	else {
+    		println(" RBC sends back the information: VSS " + intToString(leavePoint) + " is occupied by Train " + intToString(trainNo) + ". TTD " + intToString((leavePoint/3)+1) + " is occupied by Train " + intToString(trainNo) + ". VSS " + intToString(leavePoint-1) + " is now free. " ) ;
+        	
+            }
+            map = removeKey(map,leavePoint-1) ;        
+        	//Map<Int, Status> map = map[Pair(leavePoint-1, Free)];  
+        	map = insert(map,Pair(leavePoint-1, Free));
+          
+    //println(" map is " + toString(map)) ;
+            
+        }
+       	else {
+        	println(" RBC sends back the information: VSS " + intToString(leavePoint) + " is occupied by Train " + intToString(trainNo) + ". TTD " + intToString(leavePoint) + " is occupied by Train " + intToString(trainNo) + "." ) ;  
+        }
+       	
+       	map = removeKey(map,leavePoint) ;        
+        //Map<Int, Status> map = map[Pair(leavePoint, Occupied)];  
+        map = insert(map,Pair(leavePoint, Occupied));
+      
+    //println(" map is " + toString(map)) ;
+      
+        Fut<Int> g = rbc!getnextEoA(rbc,leavePoint,trainNo,map) ;
+        await g? ;
+      	
+        if (leavePoint < arrivePoint) {
+          	Fut<Unit> c = this!leaveTIMS(trainNo,vss,leavePoint,arrivePoint,map) ;
+          	await c? ;
+          
+          	//Fut<Int> g = this!getEoA(rbc,1,trainNo,map) ;
+          	//await g? ;
+          
+          	Fut<Unit> r = this!connectRBCTIMS(trainNo,vss,leavePoint,arrivePoint,rbc,map) ;
+          	await r? ;
+          	
+        }
+
+
+    }
+  
+  	Unit connectRBCNonTIMS(Int trainNo, VSS vss, Int breakPoint, Int arrivePoint, RBC rbc, Map<Int, Status> map) {
+    	println(" RBC receives the information: The first half of Train " + intToString(trainNo) + " is now at VSS " + intToString(breakPoint+1) + "." ) ;
+      	
+      	map = removeKey(map,breakPoint+1) ;        
+        //Map<Int, Status> map = map[Pair(arrivePoint+1, Occupied)];
+        map = insert(map,Pair(breakPoint+1, Ambiguous));
+      	
+    println(" map is " + toString(map)) ;
+      
+    	//if (breakPoint < arrivePoint) {
+      		breakPoint = breakPoint + 1 ;
+    		//vss => this.next ;
+       		//}    	
+      	
+		if (breakPoint % 3 == 0) {
+    		println(" RBC sends back the information: VSS " + intToString(breakPoint) + " is ambiguous because of the first half of Train " + intToString(trainNo) + ". TTD " + intToString(breakPoint/3) + " is occupied by Train " + intToString(trainNo) + ". VSS " + intToString(breakPoint-1) + "," + intToString(breakPoint-2) + " are now unknown because of Train " + intToString(trainNo) + "." ) ;
+          
+          	map = removeKey(map,breakPoint-2) ;
+          	//Map<Int, Status> map = map[Pair(breakPoint-2, Unknown)];
+          	map = insert(map,Pair(breakPoint-2, Unknown));
+          
+            map = removeKey(map,breakPoint-1) ;
+          	//Map<Int, Status> map = map[Pair(breakPoint-1, Unknown)];
+          	map = insert(map,Pair(breakPoint-1, Unknown));
+          
+          	}
+        	else {
+    			println(" RBC sends back the information: VSS " + intToString(breakPoint) + " is ambiguous because of the first half of Train " + intToString(trainNo) + ". TTD " + intToString((breakPoint/3)+1) + " is occupied by Train " + intToString(trainNo) + ". VSS " + intToString(breakPoint -1) + " is now unknown because of Train " + intToString(trainNo) + "." ) ;
+
+            	map = removeKey(map,breakPoint -1) ;
+          		//Map<Int, Status> map = map[Pair(breakPoint-1, Unknown)];
+          		map = insert(map,Pair(breakPoint-1, Unknown));
+             	
+            	}
+      		
+      		map = removeKey(map,breakPoint) ;        
+        	//Map<Int, Status> map = map[Pair(breakPoint, Ambiguous)];
+        	map = insert(map,Pair(breakPoint, Ambiguous));
+     
+      println(" map is " + toString(map)) ;
+            
+      	Fut<Int> g = this!getnextEoA(rbc,1,trainNo,map) ;
+        await g? ;
+      
+        if (breakPoint < arrivePoint) {
+          	Fut<Unit> c = this!leaveNonTIMS(trainNo,vss,breakPoint,arrivePoint,map) ;
+          	await c? ;
+          
+          	//Fut<Int> g = this!getEoA(rbc,1,trainNo,map) ;
+          	//await g? ;
+          
+          	Fut<Unit> r = this!connectRBCNonTIMS(trainNo,vss,breakPoint,arrivePoint,rbc,map) ;
+          	await r? ;
+        
+        }
+      	
+    }
+  	
+  	Int getnextEoA(RBC rbc,  Int leavePoint,  Int trainNo, Map<Int, Status> map) {
+      
+      	leavePoint = 1;
+      
+      	//map = map[Pair(1, Free), Pair(2, Free), Pair(3, Free), Pair(4, Free), Pair(5, Free), Pair(6, Free), Pair(7, Free), Pair(8, Free), Pair(9, Occupied)] ;
+       	//map = map[Pair(1, vssstatus), Pair(2, vssstatus), Pair(3, vssstatus), Pair(4, vssstatus), Pair(5, vssstatus), Pair(6, vssstatus), Pair(7, vssstatus), Pair(8, vssstatus), Pair(9, vssstatus)] ; 
+      
+      
+      	println(" before lookupUnsafe(map,leavePoint), the map is " + toString(map)) ;
+        while (lookupUnsafe(map,leavePoint) == Free && leavePoint < 9) {
+            leavePoint = leavePoint + 1 ; 
+            //println(toString(leavePoint));
+        }
+      
+    	if (leavePoint > 1) {
+      		println(" RBC sends back the information: The latest End of Authority(EoA) of train " + intToString(trainNo+1) + " is VSS " + intToString(leavePoint-1) + " . ") ;
+  
+       	}
+     	
+  		if (leavePoint == 9) {
+          println(" from getEoA in class RBCImpl, the map is " + toString(map)) ;
+          }
+      	
+      
+      	return leavePoint-1;    
+    	 
+    }
+
+  	Int getcurrentEoA(RBC rbc,  Int leavePoint,  Int trainNo, Map<Int, Status> map) {
+      
+      	leavePoint = 1;
+      
+      	//map = map[Pair(1, Free), Pair(2, Free), Pair(3, Free), Pair(4, Free), Pair(5, Free), Pair(6, Free), Pair(7, Free), Pair(8, Free), Pair(9, Occupied)] ;
+       	//map = map[Pair(1, vssstatus), Pair(2, vssstatus), Pair(3, vssstatus), Pair(4, vssstatus), Pair(5, vssstatus), Pair(6, vssstatus), Pair(7, vssstatus), Pair(8, vssstatus), Pair(9, vssstatus)] ; 
+      
+      
+      	println(" before lookupUnsafe(map,leavePoint), the map is " + toString(map)) ;
+        while (lookupUnsafe(map,leavePoint) == Free && leavePoint < 9) {
+            leavePoint = leavePoint + 1 ; 
+            //println(toString(leavePoint));
+        }
+      
+    	if (leavePoint > 1) {
+      		println(" RBC sends back the information: The End of Authority(EoA) of train " + intToString(trainNo) + " is VSS " + intToString(leavePoint-1) + " . ") ;
+  
+       	}
+     	
+  		if (leavePoint == 9) {
+          println(" from getEoA in class RBCImpl, the map is " + toString(map)) ;
+          }
+      	
+      
+      	return leavePoint-1;    
+    	 
+    }
+  
+} 
+
+// MAIN //
+
+{
+VSS v0 = new VSSImpl() ;
+VSS v1 = new VSSImpl() ;
+VSS v2 = new VSSImpl() ;
+VSS v3 = new VSSImpl() ;
+VSS v4 = new VSSImpl() ;
+VSS v5 = new VSSImpl() ;
+VSS v6 = new VSSImpl() ;
+VSS v7 = new VSSImpl() ;
+VSS v8 = new VSSImpl() ;
+VSS v9 = new VSSImpl() ;
+
+RBC rbc = new RBCImpl() ;
+
+//Status s =  Free ;  
+//Map<Int,Status> map = EmptyMap ;
+Map<Int,Status> map = map[Pair(1,Free),Pair(2,Free),Pair(3,Free),Pair(4,Free),Pair(5,Free),Pair(6,Free),Pair(7,Free),Pair(8,Free),Pair(9,Free)] ;
+
+
+List<VSS> l = list[v0,v1,v2,v3,v4,v5,v6,v7,v8,v9] ;
+  
+Train t1 = new TrainTIMSImpl(1,v0,0,v9,9,rbc,map) ;
+println(" Train 1 is a TIMS-equipped ERTMS train. ") ;
+println(" End of Authority for Train 1 is at VSS 9. ") ;
+Fut<Unit> f1 = t1!move() ;
+  await f1? ;
+  f1.get ;
+
+Train t2 = new TrainNonTIMSImpl(2,v0,0,v5,5,null,-1,rbc,map) ;
+println(" Train 2 is a ERTMS train not fitted with TIMS. ") ;
+Fut<Unit> f2 = t2!move() ;
+  await f2? ;
+  f2.get ;
+
+Train t3 = new TrainNonERTMSImpl(3,v0,0,null,-1,rbc,map) ;
+println(" Train 3 is a non-ERTMS train. ") ;
+Fut<Unit> f3 = t3!move() ;
+  await f3? ;
+  f3.get ;
+  
+}
+
