@@ -1,0 +1,77 @@
+\begin{thebibliography}{10}
+
+\bibitem{ayed2014b}
+Rahma~Ben Ayed, Simon Collart-Dutilleul, Philippe Bon, Akram Idani, and Yves
+  Ledru.
+\newblock B formal validation of ertms/etcs railway operating rules.
+\newblock In {\em International Conference on Abstract State Machines, Alloy,
+  B, TLA, VDM, and Z}, pages 124--129. Springer, 2014.
+
+\bibitem{hybridl3}
+EEIG ERTMS Users~Group. Brussels, Belgium.
+\newblock Hybrid ertms/etcs level 3: Principles.
+\newblock Ref. 16E042 Version 1A., July 2017.
+
+\bibitem{de2014automatic}
+Stefano de~Fabris, Giovanni Longo, Giorgio Medeossi, and Raffaele Pesenti.
+\newblock Automatic generation of railway timetables based on a mesoscopic
+  infrastructure model.
+\newblock {\em Journal of Rail Transport Planning \& Management}, 4(1-2):2--13,
+  2014.
+
+\bibitem{abstools}
+ABS Developers.
+\newblock Abs tools | abs models.
+\newblock \url{http://abs-models.org/abs-tools/}.
+\newblock Accessed May 25th, 2018.
+
+\bibitem{manualabs}
+ABS Developers.
+\newblock Manual | abs models.
+\newblock \url{http://abs-models.org/documentation/manual/}.
+\newblock Accessed April 15th, 2018.
+
+\bibitem{ertmsnet}
+ERTMS.
+\newblock Ertms signaling levels | ertms.
+\newblock \url{http://www.ertms.net/?page_id=42}.
+\newblock Accessed April 18th, 2018.
+
+\bibitem{eceuropaeu}
+Directorate~General for Mobility and Transport.
+\newblock Ertms - levels and modes.
+\newblock
+  \url{https://ec.europa.eu/transport/modes/rail/ertms/what-is-ertms/levels_and_modes_en}.
+\newblock Accessed April 18th, 2018.
+
+\bibitem{hahnle2012abstract}
+Reiner H{\"a}hnle.
+\newblock The abstract behavioral specification language: a tutorial
+  introduction.
+\newblock In {\em International Symposium on Formal Methods for Components and
+  Objects}, pages 1--37. Springer, 2012.
+
+\bibitem{hoang2018hybrid}
+Thai~Son Hoang, Michael Butler, and Klaus Reichl.
+\newblock The hybrid ertms/etcs level 3 case study.
+\newblock In {\em International Conference on Abstract State Machines, Alloy,
+  B, TLA, VDM, and Z}, pages 251--261. Springer, 2018.
+
+\bibitem{kamburjan2016uniform}
+Eduard Kamburjan and Reiner H{\"a}hnle.
+\newblock Uniform modeling of railway operations.
+\newblock In {\em International Workshop on Formal Techniques for
+  Safety-Critical Systems}, pages 55--71. Springer, 2016.
+
+\bibitem{lu2004modeling}
+Quan Lu, Maged Dessouky, and Robert~C Leachman.
+\newblock Modeling train movements through complex rail networks.
+\newblock {\em ACM Transactions on Modeling and Computer Simulation (TOMACS)},
+  14(1):48--75, 2004.
+
+\bibitem{pachl2011deadlock}
+J{\"o}rn Pachl.
+\newblock Deadlock avoidance in railroad operations simulations.
+\newblock Technical report, 2011.
+
+\end{thebibliography}
